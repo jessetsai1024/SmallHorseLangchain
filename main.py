@@ -3,12 +3,16 @@ from common import *
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 
-print("=" * 100)
+start_time = time.time()  # 獲取開始時間
 
-start_time = time.time()  # 获取开始时间
+load_dotenv()  # 讀取.env文件
 
-load_dotenv()
+model = ChatOpenAI(model="gpt-4o-mini")
 
-printENV()
+result = model.invoke("你好")
+# result = model.invoke("我想去澳洲留學，給我一些建議好嗎？")
+pprint.pprint(result)
+# print(result.content)
 
+print()
 print(evalEndTime(start_time))
