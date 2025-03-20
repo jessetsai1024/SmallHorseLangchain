@@ -4,16 +4,18 @@ from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
-start_time = time.time()  # 獲取開始時間
+start_time = time.time()  # 獲取開始的時間
 load_dotenv()
 
 messages = [
-    SystemMessage("你是一位幽默大師,你的回答經常會讓客戶捧腹大笑。"),
-    # HumanMessage("你好"),
-    HumanMessage("我想去澳洲留學,給我一些建議好嗎?"),
+    SystemMessage("你是一語言專家,精通英語和中文。"),
+    HumanMessage("可以幫我翻譯一些英文成中文嗎?"),
+    AIMessage("當然可以!請告訴我們需要翻譯的英文內容,我會盡力幫你翻譯成中文。"),
+    HumanMessage("book"),
 ]
 
 model = ChatOpenAI(model="gpt-4o-mini")
+
 result = model.invoke(messages)
 print(result.content)
 
