@@ -1,63 +1,50 @@
-import os, time
+import pprint, time, json
+import datetime
 from common import *
 from dotenv import load_dotenv
 
-from langchain_community.vectorstores import Chroma
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
-from langchain_core.messages import HumanMessage, SystemMessage
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain.chains.retrieval import create_retrieval_chain
-from langchain.chains.history_aware_retriever import create_history_aware_retriever
-from langchain.chains.combine_documents import create_stuff_documents_chain
+from langchain import hub
+from langchain.agents import AgentExecutor, create_react_agent
+from langchain_core.tools import Tool
+from langchain_openai import ChatOpenAI
 
 print("=" * 100)
 
-start_time = time.time()  # 獲取開始時間
+start_time = time.time()  
 load_dotenv()
 
-db = Chroma(
-    persist_directory = os.path.join(os.path.dirname(__file__), "db/sanguo.db"), 
-    embedding_function = OpenAIEmbeddings(model="text-embedding-3-small")
-)
-model = ChatOpenAI(model="gpt-4o")
-retriever = db.as_retriever(search_type="similarity", search_kwargs={"k": 2})
+def get_current_time(*args, **kwargs):
+    now = datetime.datetime.now()
+    return now.strftime("%Y-%m-%d %H:%M:%S")
 
-contextualize_q_prompt = ChatPromptTemplate.from_messages(
-    [
-        ("system", "請根據「參考文檔」回答問題，如果在這個參考文檔中沒有找到答案，請回答“不知道”。"),
-        MessagesPlaceholder("chat_history"),
-        ("human", "{input}"),
-    ]
+tools = [
+    Tool(
+        name="時間",
+        description="可以獲取當前時間",
+        func=get_current_time,
+    ),
+]
+
+prompt_react = hub.pull("hwchase17/react")
+print(prompt_react.template)
+print("=" * 100)
+
+llm = ChatOpenAI(model="gpt-4o")
+agent = create_react_agent(
+    llm=llm,
+    tools=tools,
+    prompt= prompt_react,
+    stop_sequence=True, 
 )
-history_aware_retriever = create_history_aware_retriever(
-    model, retriever, contextualize_q_prompt
+agent_executor = AgentExecutor.from_agent_and_tools(
+    agent=agent,
+    tools=tools,
+    verbose=True,
+    handle_parsing_errors=True,
 )
 
-system_prompt = (
-    "請根據「參考文檔」回答問題，如果在這個參考文檔中沒有找到答案，請回答“不知道”。"
-    "\n\n"
-    "{context}"
-)
-prompt = ChatPromptTemplate.from_messages(
-    [
-        ("system", system_prompt),
-        MessagesPlaceholder("chat_history"),
-        ("human", "{input}"),
-    ]
-)
-question_answer_chain = create_stuff_documents_chain(model, prompt)
-rag_chain = create_retrieval_chain(history_aware_retriever, question_answer_chain)
+response = agent_executor.invoke({"input": "現在幾點了？",})
 
-chat_history = []  # 收集聊天歷史（訊息序列）
-while True:
-    query = input(": ")
-    if query.lower() == "exit":
-        break
-    print("\r> 正在檢索答案...", end="")
-    result = rag_chain.invoke({"input": query, "chat_history": chat_history})
-    print("\r>", f"{result['answer']}")
-
-    chat_history.append(HumanMessage(content=query))
-    chat_history.append(SystemMessage(content=result["answer"]))
+pprint.pprint(response)
 
 print(evalEndTime(start_time))
