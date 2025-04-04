@@ -1,31 +1,31 @@
-import os, pprint, json, time
-from common import *
-from dotenv import load_dotenv
-from langchain_openai import ChatOpenAI
-from langchain_core.prompts import ChatPromptTemplate
+from youtube_transcript_api import YouTubeTranscriptApi
 
-print("=" * 100)
-start_time = time.time()    # 獲取開始時間
-load_dotenv()
+# 視頻ID
+video_id = "cAOiiVYUAC8"
 
-llm = ChatOpenAI(
-    model="gpt-4o",
-    temperature=0.5,
-)
-structured_llm = llm.with_structured_output(None, method="json_mode")
+# 列出可用字幕
+transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
+print(transcript_list)
 
-prompt = ChatPromptTemplate.from_template(
-    """Question: {question}
+# 獲取字幕
+transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=['en'])
+# print(transcript)
+content = ""
+for item in transcript:
+    # print(item['text'])
+    if item['text'] != "[Music]":
+        content += item['text'] + " "
 
-Instructions: 使用json模式輸出，項目數組輸出到items[str]字段
-Answer:
-"""
-)
+print(content)
 
-result = structured_llm.invoke(prompt.invoke({"question": "告訴我5個奧運會的項目"}))
-# result = structured_llm.invoke(prompt.invoke({"question": "告訴我5個Python的特點"}))
-# result = structured_llm.invoke(prompt.invoke({"question": "告訴我5個日本旅遊的景點"}))
-pprint.pprint(result)
-# pprint.pprint(result["items"])
+# 翻譯字幕 
+transcript = transcript_list.find_transcript(['en'])
+translated_transcript = transcript.translate('zh-Hant')
 
-print(evalEndTime(start_time))
+
+content = ""
+for item in translated_transcript.fetch():
+    if item['text'] != "[音樂]":
+        content += item['text'] + ""
+        
+print(content)
