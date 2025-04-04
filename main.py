@@ -1,14 +1,16 @@
-import time
+import pprint, time
+from langchain import hub
+from langchain.agents import AgentExecutor, create_tool_calling_agent
 from langchain.pydantic_v1 import BaseModel, Field
 from langchain_core.tools import StructuredTool
+from langchain_openai import ChatOpenAI
+from dotenv import load_dotenv
 from common import *
 
 print("=" * 100)
 
 start_time = time.time()  # 取得開始時間
-
-class SayHelloInput(BaseModel):
-    name: str = Field(..., title="The name of the person to say hello to")
+load_dotenv()
 
 def say_hello(name: str) -> str:
     """
@@ -16,8 +18,8 @@ def say_hello(name: str) -> str:
     """
     return f"親愛的{name}，你好！"
 
-class ReverseStringInput(BaseModel):
-    content: str = Field(..., title="The string to reverse")
+class SayHelloInput(BaseModel):
+    name: str = Field(..., title="The name of the person to say hello to")
 
 def reverse_string(content: str) -> str:
     """
@@ -25,15 +27,18 @@ def reverse_string(content: str) -> str:
     """
     return content[::-1]
 
-class ConcatenateStringsInput(BaseModel):
-    a: str = Field(..., title="The first string")
-    b: str = Field(..., title="The second string")
+class ReverseStringInput(BaseModel):
+    content: str = Field(..., title="The string to reverse")
 
 def concatenate_strings(a: str, b: str) -> str:
     """
     Concatenate two strings
     """
     return a + b
+
+class ConcatenateStringsInput(BaseModel):
+    a: str = Field(..., title="The first string")
+    b: str = Field(..., title="The second string")
 
 tools = [
     StructuredTool.from_function(
@@ -56,15 +61,44 @@ tools = [
     ),
 ]
 
-# 直接調用工具
-# print(tools[0].func("Koma"))
-# print(tools[1].func("Hello"))
-# print(tools[2].func("Hello", "World"))
+# 建立LLM
+llm = ChatOpenAI(model="gpt-4o", temperature=0)
 
-print(tools[0].invoke("Koma"))
-print(tools[1].invoke("Hello"))
-print(tools[2].invoke({"a": "Hello", "b": "World"}))
+# ReAct提示詞
+prompt = hub.pull("hwchase17/openai-tools-agent")
+# prompt.pretty_print()
+
+# 建立Agent
+agent = create_tool_calling_agent(
+    llm=llm,
+    tools=tools,
+    prompt=prompt,
+)
+
+# 建立Agent執行器
+agent_executor = AgentExecutor.from_agent_and_tools(
+    agent=agent,
+    tools=tools,
+    verbose=True,
+    handle_parsing_errors=True,
+)
 
 ############################################################
-# 打印結束時間
-print("\n", evalEndTime(start_time))
+
+# 調用Agent
+response = agent_executor.invoke({"input": "我是小馬"})
+pprint.pprint(response)
+
+response = agent_executor.invoke({"input": "我想翻轉一下這個字串：Hello"})
+pprint.pprint(response)
+
+response = agent_executor.invoke(
+    {
+        "input": """
+我想把這兩個字串連接起來：
+Hello
+World
+"""
+    }
+)
+pprint.pprint(response)
