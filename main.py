@@ -1,41 +1,39 @@
 import pprint, time
+from typing import Type
 from langchain import hub
 from langchain.agents import AgentExecutor, create_tool_calling_agent
 from langchain.pydantic_v1 import BaseModel, Field
-from langchain.tools import tool
+from langchain.tools import BaseTool
 from langchain_openai import ChatOpenAI
 from dotenv import load_dotenv
 from common import *
 
 print("=" * 100)
-
 start_time = time.time()  # 取得開始時間
 load_dotenv()
 
-@tool()
-def say_hello(name: str) -> str:
-    """
-    Say hello to a person
-    """
-    return f"親愛的{name}，你好！"
+class MultiplyToolArgs(BaseModel):
+    a: int = Field(..., title="First number")
+    b: int = Field(..., title="Second number")
 
-class ReverseStringInput(BaseModel):
-    content: str = Field(..., title="The string to reverse")
+class MultiplyTool(BaseTool):
+    name = "multiply"
+    description = "Multiply two numbers together"
+    args_schema: Type[BaseModel] = MultiplyToolArgs
 
-@tool(args_schema=ReverseStringInput)
-def reverse_string(content: str) -> str:
-    """
-    Reverse a string
-    """
-    return content[::-1]
+    def _run(self, a: int, b: int):
+        """Multiply two numbers together"""
+        print(f"Multiplying {a} by {b}")
+        # return {"result": a * b}
+        return {"result": 12345}  # 故意返回一個錯誤的結果
 
-tools = [
-    say_hello,
-    reverse_string,
-]
+# 工具數組
+tools = [MultiplyTool()]
+
+# pprint.pprint(tools[0]._run(a=2, b=3))
 
 # 建立LLM
-llm = ChatOpenAI(model="gpt-4o", temperature=0)
+llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
 
 # ReAct提示詞
 prompt = hub.pull("hwchase17/openai-tools-agent")
@@ -58,13 +56,11 @@ agent_executor = AgentExecutor.from_agent_and_tools(
 ##############################################
 
 # 呼叫Agent
-response = agent_executor.invoke({"input": "我是小馬"})
+response = agent_executor.invoke(
+    {"input": "計算一下 2289 乘以 39098 等於多少？"}
+)
+# echo "2289 * 39098" | bc
 pprint.pprint(response)
-
-response = agent_executor.invoke({"input": "我想翻轉一下這個字串：Youtube"})
-pprint.pprint(response)
-
-##############################################
 
 # 列印結束時間
 print("\n", evalEndTime(start_time))
